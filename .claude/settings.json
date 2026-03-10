@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push origin master)",
+      "Bash(git tag -a v3.14.0-test1 -m \"测试 Windows 构建工作流 - build_windows CI 验证\")",
+      "Bash(git push origin v3.14.0-test1)",
+      "Bash(gh run list --workflow=build_windows.yml --limit=5)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(f''Run #{r[\"\"id\"\"]}: {r[\"\"status\"\"]} | {r[\"\"conclusion\"\"]} | {r[\"\"event\"\"]} | {r[\"\"display_title\"\"]}''\\) for r in data.get\\(''workflow_runs'',[]\\)]\")",
+      "Bash(git remote get-url origin)"
+    ]
+  }
+}
