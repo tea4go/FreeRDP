@@ -1,0 +1,154 @@
+name: build_macos
+
+on:
+  workflow_dispatch:
+    branches: [ master, stable* ]
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-13
+    name: "在 macOS Intel (x86_64) 上构建 FreeRDP"
+
+    steps:
+      - name: "检出源代码"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "安装依赖 (Homebrew)"
+        run: |
+          brew update
+          brew install cmake ninja pkg-config \
+            openssl@3 zlib \
+            libusb \
+            json-c \
+            opus \
+            uriparser \
+            ffmpeg \
+            sdl3 sdl3_ttf sdl3_image \
+            fdk-aac
+
+      - name: "配置 CMake (x86_64)"
+        run: |
+          OPENSSL_ROOT=$(brew --prefix openssl@3)
+          cmake -GNinja \
+            -B build \
+            -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12 \
+            -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT" \
+            -DBUILD_SHARED_LIBS=ON \
+            -DWITH_MANPAGES=OFF \
+            -DWITH_SERVER=ON \
+            -DWITH_SAMPLE=ON \
+            -DWITH_SHADOW=OFF \
+            -DWITH_PLATFORM_SERVER=OFF \
+            -DWITH_CLIENT_SDL=OFF \
+            -DWITH_PROXY_MODULES=ON \
+            -DWITH_FFMPEG=OFF \
+            -DWITH_SWSCALE=OFF \
+            -DWITH_WEBVIEW=OFF \
+            -DCHANNEL_URBDRC=OFF \
+            -DBUILD_TESTING=OFF \
+            -DWITH_VERBOSE_WINPR_ASSERT=OFF \
+            -DWITH_INTERNAL_RC4=ON \
+            -DWITH_INTERNAL_MD4=ON \
+            -DWITH_INTERNAL_MD5=ON \
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
+
+      - name: "编译 FreeRDP"
+        run: |
+          cmake --build build --parallel $(sysctl -n hw.ncpu)
+
+      - name: "安装到输出目录"
+        run: |
+          cmake --install build
+
+      - name: "验证生成的可执行文件"
+        run: |
+          echo "=== 检查安装目录 ==="
+          find "${{ github.workspace }}/install" -type f -perm +111 | head -20 || \
+          find "${{ github.workspace }}/install" -type f | head -20
+
+          echo "=== 测试 freerdp-shadow-cli 或 xfreerdp 版本 ==="
+          BINARY=$(find "${{ github.workspace }}/install" -type f \( -name "xfreerdp" -o -name "freerdp-shadow-cli" \) | head -1)
+          if [ -n "$BINARY" ]; then
+            echo "找到可执行文件: $BINARY"
+            "$BINARY" --version || true
+          else
+            echo "未找到目标可执行文件，列出 bin 目录内容:"
+            find "${{ github.workspace }}/install" -type f | head -20
+          fi
+
+          echo "=== 验证架构 (应为 x86_64) ==="
+          find "${{ github.workspace }}/install" -name "*.dylib" | head -3 | while read f; do
+            echo "架构检查: $f"
+            file "$f"
+          done
+
+      - name: "打包构建产物"
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "版本: $VERSION"
+
+          OUT_DIR="release-package"
+          mkdir -p "$OUT_DIR"
+
+          # 复制 install 目录全部内容
+          if [ -d "${{ github.workspace }}/install" ]; then
+            cp -r "${{ github.workspace }}/install/"* "$OUT_DIR/" || true
+          fi
+
+          # 列出打包内容
+          echo "=== 打包内容 ==="
+          find "$OUT_DIR" -type f | head -30
+
+          # 创建 tar.gz 压缩包
+          TARBALL="FreeRDP-${VERSION}-macos-x86_64.tar.gz"
+          tar -czf "$TARBALL" -C "$OUT_DIR" .
+          echo "已创建压缩包: $TARBALL"
+          echo "TARBALL=$TARBALL" >> $GITHUB_ENV
+
+      - name: "上传构建产物"
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreeRDP-macos-x86_64-${{ env.VERSION }}
+          path: |
+            ${{ env.TARBALL }}
+            install/
+
+      - name: "创建 GitHub Release (仅 tag 触发时)"
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "FreeRDP ${{ env.VERSION }} macOS x86_64"
+          body: |
+            ## FreeRDP macOS Intel (x86_64) 构建
+
+            ### 包含内容
+            - `xfreerdp` - FreeRDP macOS 命令行客户端
+            - `freerdp-shadow-cli` - FreeRDP Shadow 服务端
+            - 其他可执行工具及动态库
+
+            ### 系统要求
+            - macOS 12 Monterey 或更高版本
+            - Intel (x86_64) 处理器
+
+            ### 构建信息
+            - 版本: ${{ env.VERSION }}
+            - 构建时间: ${{ github.run_started_at }}
+            - 提交: ${{ github.sha }}
+            - 架构: x86_64 (Intel)
+          files: |
+            ${{ env.TARBALL }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
