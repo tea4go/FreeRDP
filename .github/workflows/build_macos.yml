@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-13-xlarge
+    runs-on: macos-13
     name: "在 macOS Intel (x86_64) 上构建 FreeRDP"
 
     steps:
