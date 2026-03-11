@@ -1,5 +1,81 @@
+# CMake 构建产物
 **/CMakeCache.txt
 **/CMakeFiles
-build
+**/CMakeScripts
+**/cmake_install.cmake
+**/install_manifest.txt
+**/CTestTestfile.cmake
+**/CPackConfig.cmake
+**/CPackSourceConfig.cmake
+build/
+build-*/
+_build/
+out/
+
+# 安装目录
+install/
+release-package/
+*.tar.gz
+*.zip
+
+# 编译缓存
+.cache/
+ccache/
+.ccache/
+compile_commands.json
+
+# IDE / 编辑器
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln.docstates
+*.ncb
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.VC.opendb
+.vs/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 依赖源码（bundle-mac-os.sh 克隆的）
+src/
+src/openssl/
+src/zlib/
+src/uriparser/
+src/json-c/
+src/SDL/
+src/SDL_ttf/
+src/SDL_image/
+src/libusb-cmake/
+src/FFmpeg/
+src/openh264/
+src/opus/
+src/fdk-aac/
+
+# Gradle / Android 构建缓存
+client/Android/Studio/.gradle/
+client/Android/Studio/app/build/
+client/Android/Studio/.idea/
+**/.gradle/
+**/local.properties
+
+# vcpkg 缓存
+vcpkg_installed/
+.vcpkg/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 日志文件
+*.log
+
+# CI 检查工具
 checker
 abi-checker
